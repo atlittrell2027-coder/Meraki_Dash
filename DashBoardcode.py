@@ -38,7 +38,7 @@ st.markdown("""
         padding-left: 0.5rem !important; 
         padding-right: 1rem; 
         max-width: 100% !important; 
-        background-image: url('YOUR_IMAGE_URL_HERE');
+        logo_path = /workspaces/Meraki_Dash/images/Background.png;
         background-size: cover;
         background-position: center;
         background-repeat: no-repeat;
@@ -67,13 +67,13 @@ st.markdown("""
     div.stButton > button { background-color: #ff4b4b !important; color: white !important; font-weight: bold !important; border-radius: 5px; border: none; }
     .pag-footer button { background-color: #ff4b4b !important; color: white !important; border: none !important; height: 50px !important; font-size: 24px !important; border-radius: 8px !important; }
     
-    .centered-title { display: block; text-align: center !important; width: 100%; margin-bottom: 10px; font-size: 1.75rem; font-weight: 600; }
+    .centered-title { display: block; text-align: center !important; width: 100%; margin-bottom: 5px; font-size: 1.75rem; font-weight: 600; }
     .graph-title-shift { padding-left: 38px; font-size: 1.75rem; font-weight: bold; }
 
     /* ⭐️ LOGO POSITION: Shifted UP another 0.10 characters */
     .top-header-logo-container {
-        padding-top: -2.00em; 
-        margin-left: 1em;    
+        padding-top: -2.00px; 
+        margin-left: 10px;    
     }
 
     [data-testid="column"] { display: flex; align-items: center; }
