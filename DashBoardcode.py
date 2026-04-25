@@ -6,6 +6,7 @@ from datetime import datetime
 import pytz
 from streamlit_autorefresh import st_autorefresh
 import altair as alt
+import os
 
 # ⏱ Refresh every 60 seconds
 st_autorefresh(interval=60000, limit=None, key="meraki_refresh")
@@ -27,15 +28,33 @@ if 'last_known_status' not in st.session_state:
 pst_tz = pytz.timezone('US/Pacific')
 current_pst = datetime.now(pst_tz)
 
-# CSS: Scrolling restored, Red Button, and No-Fade logic
+# CSS: Advanced styling for Layout and Background
 st.markdown("""
     <style>
     html, body { overflow-y: auto !important; }
-    [data-testid="stAppViewBlockContainer"] { opacity: 1 !important; }
-    .block-container { padding-top: 1rem; padding-left: 0.5rem !important; padding-right: 1rem; max-width: 100% !important; }
+
+    .block-container { 
+        padding-top: 0.5rem !important; /* ⭐️ Nudged entire page up */
+        padding-left: 0.5rem !important; 
+        padding-right: 1rem; 
+        max-width: 100% !important; 
+        background-image: url('YOUR_IMAGE_URL_HERE');
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+    }
+
     [data-testid="stMetric"] { display: flex; flex-direction: column; align-items: flex-start; text-align: left; padding-left: 10px; }
     
-    hr { margin-left: 10px; width: 100%; margin-top: 10px !important; margin-bottom: 20px !important; }
+    /* ⭐️ NUDGED DIVIDING LINE UP */
+    hr { 
+        margin-left: 10px; 
+        width: 100%; 
+        margin-top: -17px !important; 
+        margin-bottom: 10px !important; 
+    }
+    
     .tight-divider hr { margin-top: -32px !important; margin-bottom: 5px !important; }
 
     .header-widget { text-align: right; margin-top: 10px; font-size: 26px; } 
@@ -50,13 +69,21 @@ st.markdown("""
     
     .centered-title { display: block; text-align: center !important; width: 100%; margin-bottom: 10px; font-size: 1.75rem; font-weight: 600; }
     .graph-title-shift { padding-left: 38px; font-size: 1.75rem; font-weight: bold; }
+
+    /* ⭐️ LOGO POSITION: Shifted UP another 0.10 characters */
+    .top-header-logo-container {
+        padding-top: -2.00em; 
+        margin-left: 1em;    
+    }
+
+    [data-testid="column"] { display: flex; align-items: center; }
     </style>
 """, unsafe_allow_html=True)
 
 # Helper for Padding and Pagination
 def get_paged_data(df, page_num, page_size=5):
     start = page_num * page_size
-    end = start + page_size
+    end = start + page_size 
     paged_df = df.iloc[start:end].copy()
     while len(paged_df) < page_size:
         empty_row = {col: "—" for col in df.columns}
@@ -86,7 +113,7 @@ try:
     mx_device = next((d for d in net_devices if 'MX85' in d.get('model', '')), None)
     is_mx_online = mx_device.get('status').lower() == 'online' if mx_device else False
 
-    # ⭐️ DYNAMIC TIMER LOGIC: Reset on transition
+    # DYNAMIC TIMER LOGIC
     if is_mx_online:
         if st.session_state.last_known_status == 'offline' or st.session_state.uptime_start_time is None:
             st.session_state.uptime_start_time = current_pst
@@ -106,8 +133,18 @@ try:
     uptime_display = f"{prefix}{int(days)}d {int(hours):02}h {int(minutes):02}m {int(seconds):02}s"
 
     # --- TOP HEADER ---
-    header_col1, header_col2 = st.columns([2, 1])
-    with header_col1: st.title("🌐 Network Operations Center")
+    header_col1, header_col2 = st.columns([3, 2])
+    with header_col1:
+        logo_l, title_r = st.columns([0.3, 2.7])
+        with logo_l:
+            logo_path = 'images/MDTV_Logo.png'
+            if os.path.exists(logo_path):
+                st.markdown('<div class="top-header-logo-container">', unsafe_allow_html=True)
+                st.image(logo_path, width=100) 
+                st.markdown('</div>', unsafe_allow_html=True)
+        with title_r:
+            st.title("Network Operations Center")
+
     with header_col2:
         try:
             w_res = requests.get("https://wttr.in/Chula+Vista?format=%c+%t+|+💧+%h", timeout=3)
@@ -122,9 +159,9 @@ try:
     with stat_col2:
         st.markdown(f"<div class='op-center-row'><span>📍 MDTV Intranet Usage | </span><span class='{status_class}'>{status_label} {uptime_display}</span></div>", unsafe_allow_html=True)
     with stat_col3:
-        if mx_device and st.button("Reboot System", use_container_width=True):
+        if mx_device and st.button("Reboot System", key="reboot_btn", use_container_width=True):
             dashboard.devices.rebootDevice(mx_device['serial'])
-            st.session_state.last_known_status = 'offline' # Force transition
+            st.session_state.last_known_status = 'offline'
             st.rerun()
 
     # --- METRICS GATHERING ---
