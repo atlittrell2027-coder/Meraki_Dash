@@ -7,25 +7,31 @@ import pytz
 from streamlit_autorefresh import st_autorefresh
 import altair as alt
 
-# Refresh every 30 seconds to update the timer and network data
-st_autorefresh(interval=30000, limit=None, key="meraki_refresh")
+# ⭐️ UPDATED: Refresh every 60 seconds (60,000 milliseconds)
+st_autorefresh(interval=60000, limit=None, key="meraki_refresh")
 
 # Page Configuration
 st.set_page_config(page_title="Network NOC Dashboard", layout="wide")
 
-# --- SYSTEM UPTIME TIMER LOGIC ---
-if 'start_time' not in st.session_state:
-    st.session_state.start_time = datetime.now()
+# --- HARDWARE UPTIME CALCULATION ---
+pst_tz = pytz.timezone('US/Pacific')
+boot_time = datetime(2026, 4, 24, 13, 48, 48, tzinfo=pst_tz)
+current_pst = datetime.now(pst_tz)
 
-elapsed = datetime.now() - st.session_state.start_time
+elapsed = current_pst - boot_time
 days = elapsed.days
 hours, remainder = divmod(elapsed.seconds, 3600)
 minutes, seconds = divmod(remainder, 60)
 uptime_display = f"{days}d {hours:02}h {minutes:02}m {seconds:02}s"
 
-# CSS: Professional NOC alignment and Red Button Styling
+# CSS: Professional NOC alignment, Red Button, and NO FADE logic
 st.markdown("""
     <style>
+    /* REMOVE REFRESH FADING (Force 100% Opacity) */
+    [data-testid="stAppViewBlockContainer"] {
+        opacity: 1 !important;
+    }
+
     .block-container { 
         padding-top: 1rem; 
         padding-left: 0.5rem !important; 
@@ -65,7 +71,7 @@ st.markdown("""
     .status-timer { color: #21c354; font-family: monospace; }
     .status-offline { color: #ff4b4b; font-family: monospace; text-decoration: blink; }
 
-    /* Red Reboot Button Styling (No Icon) */
+    /* Red Reboot Button Styling */
     div.stButton > button {
         background-color: #ff4b4b !important;
         color: white !important;
@@ -99,8 +105,7 @@ def color_status(val):
     return ''
 
 # --- FETCH DATE, TIME, AND WEATHER ---
-pst_tz = pytz.timezone('US/Pacific')
-current_time = datetime.now(pst_tz).strftime("%A, %B %d, %Y | %I:%M %p")
+current_time_str = current_pst.strftime("%A, %B %d, %Y | %I:%M %p")
 
 try:
     response = requests.get("https://wttr.in/Chula+Vista?format=%c+%t+|+💧+%h", timeout=3)
@@ -109,7 +114,7 @@ try:
 except:
     weather_data = "🌤️ --°F | 💧 --%" 
 
-# Securely pull Meraki API Key
+# Securely pull API Key
 try:
     api_key = st.secrets["MERAKI_API_KEY"]
 except KeyError:
@@ -128,7 +133,7 @@ try:
     devices = dashboard.organizations.getOrganizationDevicesStatuses(org_id)
     net_devices = [d for d in devices if d['networkId'] == network_id]
     
-    # Identify MX85 for status and reboot
+    # MX85 Status
     mx_device = next((d for d in net_devices if 'MX85' in d.get('model', '')), None)
     is_mx_online = mx_device.get('status') == 'online' if mx_device else False
     mx_serial = mx_device.get('serial') if mx_device else None
@@ -141,7 +146,7 @@ try:
     with header_col1:
         st.title("🌐 Network Operations Center")
     with header_col2:
-        st.markdown(f"<div class='header-widget'><div><strong>{current_time}</strong></div><div class='weather-text'>{weather_data}</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='header-widget'><div><strong>{current_time_str}</strong></div><div class='weather-text'>{weather_data}</div></div>", unsafe_allow_html=True)
 
     st.markdown("---")
 
@@ -156,7 +161,6 @@ try:
         """, unsafe_allow_html=True)
     with stat_col3:
         if mx_serial:
-            # ⭐️ Arrow icon removed as requested
             if st.button("Reboot System", width="stretch"):
                 try:
                     dashboard.devices.rebootNetworkDevice(mx_serial)
@@ -187,7 +191,13 @@ try:
         total_kb = usage['recv'] + usage['sent']
         d['Total Traffic (30d)'] = f"{total_kb / 1048576:.2f} GB"
 
-    uplink_usage = dashboard.appliance.getNetworkApplianceUplinksUsageHistory(network_id, timespan=7200)
+    # ⭐️ 1-MINUTE RESOLUTION (Synchronized)
+    uplink_usage = dashboard.appliance.getNetworkApplianceUplinksUsageHistory(
+        network_id, 
+        timespan=7200, 
+        resolution=60
+    )
+    
     graph_data = []
     latest_dl, latest_ul, latest_total = 0, 0, 0
     if uplink_usage:
