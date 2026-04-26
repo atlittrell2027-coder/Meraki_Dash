@@ -499,9 +499,12 @@ try:
                 st.rerun()
 
     # --- LIVE JAVASCRIPT TIMER INJECTION ---
+    # Capture time right before injection (not earlier in script) to account for API call delays
+    current_pst_now = datetime.now(pst_tz)
     state_timestamp_ms = int(state_timestamp.timestamp() * 1000)
     is_online_js = "true" if is_mx_online else "false"
     refresh_interval_ms = 60000  # 60 seconds
+    last_refresh_time_ms = int(current_pst_now.timestamp() * 1000)
 
     js_code = f"""
     <script>
@@ -509,7 +512,7 @@ try:
     const stateTimestampMs = {state_timestamp_ms};
     const isOnline = {is_online_js};
     const refreshIntervalMs = {refresh_interval_ms};
-    let lastRefreshTime = Date.now();
+    let lastRefreshTime = {last_refresh_time_ms};
 
     setInterval(() => {{
         const now = new Date();
