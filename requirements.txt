@@ -1,1 +1,7 @@
 streamlit
+meraki
+pandas
+requests
+pytz
+streamlit-autorefresh
+altair
