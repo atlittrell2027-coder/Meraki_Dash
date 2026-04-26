@@ -113,14 +113,31 @@ st.markdown("""
     [data-testid="stMetric"] { 
         display: flex; 
         flex-direction: column; 
-        align-items: flex-start; 
-        text-align: left; 
+        align-items: center; 
+        justify-content: center; 
+        text-align: center; 
         padding: 15px; 
         background: rgb(14, 17, 24); 
         border: 1px solid rgb(159, 142, 99); 
         border-radius: 8px; 
         box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
         margin-bottom: 15px !important; 
+    }
+    [data-testid="stMetric"] > div,
+    [data-testid="stMetric"] > div > div {
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+    }
+    [data-testid="stMetric"] * {
+        text-align: center !important;
+    }
+    [data-testid="stMetric"] > div > div:last-child {
+        font-size: 1.08rem !important;
+        line-height: 1.2 !important;
     }
 
     /* ⭐️ COMBINED Chart Area Custom Color */
@@ -390,7 +407,7 @@ try:
 
     col1, col2, col3, col4, col5, col6 = st.columns([1, 1, 1, 1, 1, 1])
     online_count = sum(1 for d in net_devices if d['status'].lower() == 'online')
-    col1.metric("Infrastructure Status", "🟢 ONLINE" if is_mx_online else "🔴 OFFLINE", f"{online_count}/{len(net_devices)} Connected")
+    col1.metric("Infrastructure Status", "ONLINE" if is_mx_online else "OFFLINE", f"{online_count}/{len(net_devices)} Connected")
     active_clients = sum(1 for c in clients_list if str(c.get('status', '')).lower() == 'online')
     col2.metric("Active Client Devices", f"{active_clients}", "Connected")
     col3.metric("Network Health Score", "100%", "Optimal")
@@ -436,7 +453,7 @@ try:
                 color=alt.Color('application:N', scale=alt.Scale(range=['#29b5e8', '#1bc98e', '#e64759', '#e4d836', '#9e54db']), legend=None),
                 tooltip=['application', 'Usage (MB)']
             ).properties(height=300)
-            st.altair_chart(app_chart, use_container_width=True)
+            st.altair_chart(app_chart, width='stretch')
         else: st.info("Gathering traffic data...")
     
     # --- HARDENED DUAL TABLES GATHERING ---
@@ -490,11 +507,11 @@ try:
         
         _, f_l, _, f_r = st.columns([0.25, 1, 20, 1])
         with f_l:
-            if st.button("←", key="prev_g", disabled=(st.session_state.dashboard_page == 0), use_container_width=True):
+            if st.button("←", key="prev_g", disabled=(st.session_state.dashboard_page == 0), width='stretch'):
                 st.session_state.dashboard_page -= 1
                 st.rerun()
         with f_r:
-            if st.button("→", key="next_g", disabled=not can_next, use_container_width=True):
+            if st.button("→", key="next_g", disabled=not can_next, width='stretch'):
                 st.session_state.dashboard_page += 1
                 st.rerun()
 
