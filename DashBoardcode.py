@@ -339,7 +339,7 @@ try:
             
         df_graph = pd.DataFrame(graph_data)
         if not df_graph.empty:
-            df_graph['Time'] = pd.to_datetime(df_graph['Time']).dt.tz_convert('US/Pacific')
+            df_graph['Time'] = pd.to_datetime(df_graph['Time']).dt.tz_convert('America/Los_Angeles')
             df_graph['Tooltip_Time'] = df_graph['Time'].dt.strftime('%A, %I:%M %p')
             df_melted = df_graph.melt(id_vars=['Time'], value_vars=['Download (MB)', 'Upload (MB)'], var_name='Type', value_name='MB')
             hover_selection = alt.selection_point(fields=['Time'], nearest=True, on='mouseover', empty=False)
