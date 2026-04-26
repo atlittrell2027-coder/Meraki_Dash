@@ -15,7 +15,7 @@ st_autorefresh(interval=60000, limit=None, key="meraki_refresh_timer")
 st.set_page_config(page_title="Network NOC Dashboard", layout="wide")
 
 # --- TIME CALCULATION ---
-pst_tz = pytz.timezone('US/Pacific')
+pst_tz = pytz.timezone('America/Los_Angeles')
 current_pst = datetime.now(pst_tz)
 
 # --- SESSION STATE TRACKING ---
