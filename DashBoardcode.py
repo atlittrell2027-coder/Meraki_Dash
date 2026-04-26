@@ -218,6 +218,8 @@ def color_status(val):
         return 'background-color: #3d0e0e; color: #ff4b4b; border: 1px solid #ff4b4b; border-radius: 4px; font-weight: bold; padding: 2px 8px;'
     elif 'NOT CONNECTED' in val_str:
         return 'background-color: #2b2b2b; color: #a0a0a0; border: 1px solid #a0a0a0; border-radius: 4px; font-weight: bold; padding: 2px 8px;'
+    elif 'ALERT' in val_str:
+        return 'background-color: #4d3d0e; color: #ffeb3b; border: 1px solid #ffeb3b; border-radius: 4px; font-weight: bold; padding: 2px 8px;'
     return ''
 
 current_time_str = current_pst.strftime("%A, %B %d, %Y | %I:%M:%S %p")
@@ -384,7 +386,7 @@ try:
 
     df_infra_all['traffic_raw'] = df_infra_all['mac'].str.lower().map(device_usage).fillna(0)
     df_infra_all['Total Traffic (30d)'] = df_infra_all['traffic_raw'].apply(lambda x: f"{x / 1048576:.2f} GB")
-    df_infra_all['status'] = df_infra_all['status'].str.upper().map({'ONLINE': '↑ ONLINE', 'OFFLINE': '↓ OFFLINE'})
+    df_infra_all['status'] = df_infra_all['status'].str.upper().map({'ONLINE': '↑ ONLINE', 'OFFLINE': '↓ OFFLINE'}).fillna('⚠️ ALERT')
     df_infra_final = df_infra_all.sort_values(by=['is_online', 'traffic_raw'], ascending=[False, False])[['name', 'model', 'status', 'Total Traffic (30d)']].rename(columns={'name':'Name', 'model':'Model', 'status':'Status'})
 
     df_clients_all = pd.DataFrame(clients_list)
@@ -394,7 +396,7 @@ try:
         if 'description' not in df_clients_all.columns: df_clients_all['description'] = df_clients_all.get('mac', 'Unknown')
         
         df_clients_all['Port'] = df_clients_all['switchport'].apply(lambda x: x if pd.notnull(x) and x != "" else "—")
-        df_clients_all['status'] = df_clients_all['status'].str.upper().map({'ONLINE': '↑ ONLINE', 'OFFLINE': '↓ NOT CONNECTED'})
+        df_clients_all['status'] = df_clients_all['status'].str.upper().map({'ONLINE': '↑ ONLINE', 'OFFLINE': '↓ NOT CONNECTED'}).fillna('⚠️ ALERT')
         df_clients_final = df_clients_all.sort_values(by=['status', 'lastSeen'], ascending=[False, False])[['description', 'os', 'status', 'Port']].rename(columns={'description':'Description', 'os':'OS', 'status':'Status'})
     else: df_clients_final = pd.DataFrame(columns=['Description', 'OS', 'Status', 'Port'])
 
