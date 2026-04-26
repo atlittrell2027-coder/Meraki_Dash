@@ -1,3 +1,7 @@
+import json
+import os
+from pathlib import Path
+
 import streamlit as st
 import streamlit.components.v1 as components
 import meraki
@@ -7,6 +11,7 @@ from datetime import datetime, timedelta
 import pytz
 from streamlit_autorefresh import st_autorefresh
 import altair as alt
+import base64
 
 # ⏱ APP REFRESH (Meraki Grab): Refreshes the Python backend every 60 seconds
 st_autorefresh(interval=60000, limit=None, key="meraki_refresh_timer")
@@ -25,6 +30,36 @@ if 'current_status' not in st.session_state:
     st.session_state.current_status = None
 if 'status_since' not in st.session_state:
     st.session_state.status_since = None
+
+# Shared traffic state persistence across visitors
+state_file = Path(__file__).resolve().parent / 'traffic_state.json'
+
+def load_traffic_state():
+    if state_file.exists():
+        try:
+            raw = json.loads(state_file.read_text())
+            ts = raw.get('traffic_state_start')
+            return {
+                'traffic_active': bool(raw.get('traffic_active', False)),
+                'traffic_state_start': datetime.fromisoformat(ts) if ts else current_pst
+            }
+        except Exception:
+            pass
+    return {'traffic_active': False, 'traffic_state_start': current_pst}
+
+
+def save_traffic_state(state):
+    try:
+        state_file.write_text(json.dumps({
+            'traffic_active': bool(state['traffic_active']),
+            'traffic_state_start': state['traffic_state_start'].astimezone(pst_tz).isoformat()
+        }))
+    except Exception:
+        pass
+
+traffic_state = load_traffic_state()
+if not state_file.exists():
+    save_traffic_state(traffic_state)
 
 # CSS: Advanced styling for Layout and Background
 st.markdown("""
@@ -53,9 +88,12 @@ st.markdown("""
 
     /* ⭐️ SMOOTH BACKGROUND GRADIENT ANIMATION */
     @keyframes gradientShift {
-        0% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
+        0% { background-image: linear-gradient(135deg, rgb(3, 53, 116), rgb(0, 30, 60), rgb(3, 53, 116)); }
+        20% { background-image: linear-gradient(135deg, rgb(0, 80, 140), rgb(0, 30, 60), rgb(0, 80, 140)); }
+        40% { background-image: linear-gradient(135deg, rgb(0, 120, 180), rgb(0, 30, 60), rgb(0, 120, 180)); }
+        60% { background-image: linear-gradient(135deg, rgb(255, 215, 0), rgb(184, 134, 11), rgb(255, 215, 0)); }
+        80% { background-image: linear-gradient(135deg, rgb(0, 80, 140), rgb(0, 30, 60), rgb(0, 80, 140)); }
+        100% { background-image: linear-gradient(135deg, rgb(3, 53, 116), rgb(0, 30, 60), rgb(3, 53, 116)); }
     }
 
     .block-container { 
@@ -65,9 +103,9 @@ st.markdown("""
         padding-right: 1rem !important; 
         padding-bottom: 20px !important; 
         max-width: 100% !important; 
-        background: linear-gradient(135deg, rgb(3, 53, 116), rgb(14, 17, 24), rgb(3, 53, 116)) !important;
+        background-image: linear-gradient(135deg, rgb(3, 53, 116), rgb(0, 30, 60), rgb(3, 53, 116)) !important;
         background-size: 200% 200% !important;
-        animation: gradientShift 15s ease infinite !important;
+        animation: gradientShift 3s ease infinite !important;
         background-attachment: fixed;
     }
 
@@ -158,20 +196,32 @@ st.markdown("""
         margin: 0 !important; 
         padding: 0 !important; 
         transform: translateY(-15px); 
+        position: relative;
     }
+    .top-status-center { display: flex; align-items: center; gap: 0.75rem; justify-content: center; max-width: calc(100% - 280px); white-space: nowrap; font-size: 1.7rem; }
+    .top-status-right { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); display: flex; align-items: center; gap: 0.45rem; font-size: 1.1rem; color: #ffeb3b; white-space: nowrap; }
+    .top-status-right span { min-width: 64px; text-align: right; }
+    .top-status-center span, .top-status-right span { line-height: 1.1; }
+    .refresh-alert { color: #ff4b4b !important; }
+    #refresh-icon { width: 20px; height: 20px; border: 2px solid #f3f3f3; border-top: 2px solid #3498db; border-radius: 50%; animation: spin 1.2s linear infinite; }
+    img.top-logo { width: 26px; height: 26px; object-fit: contain; }
     
     .status-timer { color: #21c354; font-family: monospace; }
     
     /* TRUE FLICKERING ANIMATION FOR OFFLINE STATUS */
     @keyframes blinker {
         0% { opacity: 1; }
-        50% { opacity: 0.1; }
+        50% { opacity: 0.7; }
         100% { opacity: 1; }
+    }
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
     }
     .status-offline { 
         color: #ff4b4b; 
-        font-family: monospace; 
-        animation: blinker 1s linear infinite; 
+        font-family: monospace;
+        animation: blinker 2s ease-in-out infinite;
     }
     
     /* ⭐️ GLOBAL BUTTON BASE */
@@ -225,6 +275,13 @@ def color_status(val):
 current_time_str = current_pst.strftime("%A, %B %d, %Y | %I:%M:%S %p")
 
 try:
+    try:
+        with open("images/MDTV_Logo.png", "rb") as img_file:
+            logo_data = base64.b64encode(img_file.read()).decode()
+        logo_html = f"<img src='data:image/png;base64,{logo_data}' class='top-logo' alt='MDTV logo'/>"
+    except Exception:
+        logo_html = "📍"
+
     api_key = st.secrets["MERAKI_API_KEY"]
     dashboard = meraki.DashboardAPI(api_key, suppress_logging=True)
     org_id = dashboard.organizations.getOrganizations()[0]['id']
@@ -264,11 +321,17 @@ try:
         st.session_state.current_status = is_mx_online
         st.session_state.status_since = current_pst
 
-    state_timestamp = st.session_state.status_since
+    current_traffic_active = latest_traffic > 0 if graph_data else is_mx_online
+    if traffic_state['traffic_active'] != current_traffic_active:
+        traffic_state['traffic_active'] = current_traffic_active
+        traffic_state['traffic_state_start'] = current_pst
+        save_traffic_state(traffic_state)
+
+    state_timestamp = traffic_state['traffic_state_start']
     elapsed = current_pst - state_timestamp
     if elapsed < timedelta(0): elapsed = timedelta(0)
 
-    if is_mx_online:
+    if traffic_state['traffic_active']:
         status_class, status_label, prefix = "status-timer", "SYSTEM UPTIME:", ""
     else:
         status_class, status_label, prefix = "status-offline", "SYSTEM DOWNTIME:", "-"
@@ -277,6 +340,10 @@ try:
     hours, mins_rem = divmod(hours_rem, 3600)
     minutes, seconds = divmod(mins_rem, 60)
     uptime_display = f"{prefix}{int(days)}d {int(hours):02}h {int(minutes):02}m {int(seconds):02}s"
+
+    # Apply red background during downtime
+    if status_class == 'status-offline':
+        st.markdown("<style>.block-container { background: linear-gradient(135deg, rgb(139, 0, 0), rgb(50, 0, 0), rgb(139, 0, 0)) !important; animation: none !important; }</style>", unsafe_allow_html=True)
 
     # --- TOP HEADER ---
     header_col1, header_col2 = st.columns([3, 2])
@@ -296,10 +363,10 @@ try:
     # --- ⭐️ PERFECTLY CENTERED TOP STATUS BOX ---
     with st.container():
         st.markdown("<div class='top-box-wrapper'></div>", unsafe_allow_html=True)
-        stat_col = st.columns([1], vertical_alignment="center")[0]
-        
-        with stat_col:
-            st.markdown(f"<div class='op-center-row'><span>📍 MDTV Intranet Usage |&nbsp;</span><span class='{status_class}'>{status_label} <span id='live-timer'>{uptime_display}</span></span></div>", unsafe_allow_html=True)
+        st.markdown(
+            f"<div class='op-center-row'><div class='top-status-center'><span>{logo_html}</span><span>MDTV Intranet Usage |</span><span class='{status_class}'>{status_label} <span id='live-timer'>{uptime_display}</span></span></div><div class='top-status-right'><div id='refresh-icon' style='display: none;'></div><span id='refresh-timer'>60s</span></div></div>",
+            unsafe_allow_html=True,
+        )
 
     # --- METRICS GATHERING ---
     top_apps = pd.DataFrame(columns=['application', 'Usage (MB)'])
@@ -387,7 +454,9 @@ try:
     df_infra_all['traffic_raw'] = df_infra_all['mac'].str.lower().map(device_usage).fillna(0)
     df_infra_all['Total Traffic (30d)'] = df_infra_all['traffic_raw'].apply(lambda x: f"{x / 1048576:.2f} GB")
     df_infra_all['status'] = df_infra_all['status'].str.upper().map({'ONLINE': '↑ ONLINE', 'OFFLINE': '↓ OFFLINE'}).fillna('⚠️ ALERT')
-    df_infra_final = df_infra_all.sort_values(by=['is_online', 'traffic_raw'], ascending=[False, False])[['name', 'model', 'status', 'Total Traffic (30d)']].rename(columns={'name':'Name', 'model':'Model', 'status':'Status'})
+    df_infra_all['is_alert'] = df_infra_all['status'] == '⚠️ ALERT'
+    df_infra_all['is_online'] = df_infra_all['status'].str.contains('ONLINE', na=False)
+    df_infra_final = df_infra_all.sort_values(by=['is_alert', 'is_online', 'traffic_raw'], ascending=[False, False, False])[['name', 'model', 'status', 'Total Traffic (30d)']].rename(columns={'name':'Name', 'model':'Model', 'status':'Status'})
 
     df_clients_all = pd.DataFrame(clients_list)
     if not df_clients_all.empty:
@@ -397,7 +466,9 @@ try:
         
         df_clients_all['Port'] = df_clients_all['switchport'].apply(lambda x: x if pd.notnull(x) and x != "" else "—")
         df_clients_all['status'] = df_clients_all['status'].str.upper().map({'ONLINE': '↑ ONLINE', 'OFFLINE': '↓ NOT CONNECTED'}).fillna('⚠️ ALERT')
-        df_clients_final = df_clients_all.sort_values(by=['status', 'lastSeen'], ascending=[False, False])[['description', 'os', 'status', 'Port']].rename(columns={'description':'Description', 'os':'OS', 'status':'Status'})
+        df_clients_all['is_alert'] = df_clients_all['status'] == '⚠️ ALERT'
+        df_clients_all['is_online'] = df_clients_all['status'].str.contains('ONLINE', na=False)
+        df_clients_final = df_clients_all.sort_values(by=['is_alert', 'is_online', 'lastSeen'], ascending=[False, False, False])[['description', 'os', 'status', 'Port']].rename(columns={'description':'Description', 'os':'OS', 'status':'Status'})
     else: df_clients_final = pd.DataFrame(columns=['Description', 'OS', 'Status', 'Port'])
 
 
@@ -430,15 +501,48 @@ try:
     # --- LIVE JAVASCRIPT TIMER INJECTION ---
     state_timestamp_ms = int(state_timestamp.timestamp() * 1000)
     is_online_js = "true" if is_mx_online else "false"
+    refresh_interval_ms = 60000  # 60 seconds
 
     js_code = f"""
     <script>
     const parentDoc = window.parent.document;
     const stateTimestampMs = {state_timestamp_ms};
     const isOnline = {is_online_js};
+    const refreshIntervalMs = {refresh_interval_ms};
+    let lastRefreshTime = Date.now();
 
     setInterval(() => {{
         const now = new Date();
+        const currentTime = now.getTime();
+        
+        // Calculate seconds until next refresh
+        const timeSinceLastRefresh = currentTime - lastRefreshTime;
+        const secondsUntilRefresh = Math.ceil((refreshIntervalMs - timeSinceLastRefresh) / 1000);
+        
+        // Show refresh icon for first 3 seconds of each refresh cycle
+        const refreshIcon = parentDoc.getElementById('refresh-icon');
+        const refreshTimer = parentDoc.getElementById('refresh-timer');
+        
+        if (refreshIcon && refreshTimer) {{
+            if (timeSinceLastRefresh < 3000) {{
+                refreshIcon.style.display = 'inline';
+                refreshTimer.innerText = 'Refreshing...';
+            }} else {{
+                refreshIcon.style.display = 'none';
+                refreshTimer.innerText = secondsUntilRefresh + 's';
+            }}
+
+            if (timeSinceLastRefresh < 3000 || secondsUntilRefresh <= 10) {{
+                refreshTimer.classList.add('refresh-alert');
+            }} else {{
+                refreshTimer.classList.remove('refresh-alert');
+            }}
+        }}
+        
+        // Reset refresh timer every 60 seconds
+        if (timeSinceLastRefresh >= refreshIntervalMs) {{
+            lastRefreshTime = currentTime;
+        }}
         
         const clockEl = parentDoc.getElementById('live-clock');
         if (clockEl) {{
