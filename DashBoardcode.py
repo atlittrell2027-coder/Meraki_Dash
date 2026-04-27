@@ -1,6 +1,7 @@
 import json
 import os
 from pathlib import Path
+import random
 
 import streamlit as st
 import streamlit.components.v1 as components
@@ -12,6 +13,7 @@ import pytz
 from streamlit_autorefresh import st_autorefresh
 import altair as alt
 import base64
+import streamlit_extras
 
 # ⏱ APP REFRESH (Meraki Grab): Refreshes the Python backend every 60 seconds
 st_autorefresh(interval=60000, limit=None, key="meraki_refresh_timer")
@@ -47,7 +49,6 @@ def load_traffic_state():
             pass
     return {'traffic_active': False, 'traffic_state_start': current_pst}
 
-
 def save_traffic_state(state):
     try:
         state_file.write_text(json.dumps({
@@ -61,9 +62,20 @@ traffic_state = load_traffic_state()
 if not state_file.exists():
     save_traffic_state(traffic_state)
 
-# CSS: Advanced styling for Layout and Background
+# ⭐️ STATIC CSS: Layout, Colors, and Hiding Elements
 st.markdown("""
     <style>
+    /* ⭐️ HIDE SCROLLBAR BUT KEEP SCROLLING */
+    ::-webkit-scrollbar {
+        display: none !important;
+        width: 0px !important;
+        background: transparent !important;
+    }
+    * {
+        -ms-overflow-style: none !important;  /* IE and Edge */
+        scrollbar-width: none !important;  /* Firefox */
+    }
+
     /* ⭐️ HIDE THE STREAMLIT DEFAULT TOP HEADER BAR & TOOLBAR */
     [data-testid="stHeader"], [data-testid="stToolbar"], footer { 
         display: none !important; 
@@ -86,16 +98,6 @@ st.markdown("""
 
     html, body { overflow-y: auto !important; }
 
-    /* ⭐️ SMOOTH BACKGROUND GRADIENT ANIMATION */
-    @keyframes gradientShift {
-        0% { background-image: linear-gradient(135deg, rgb(3, 53, 116), rgb(0, 30, 60), rgb(3, 53, 116)); }
-        20% { background-image: linear-gradient(135deg, rgb(0, 80, 140), rgb(0, 30, 60), rgb(0, 80, 140)); }
-        40% { background-image: linear-gradient(135deg, rgb(0, 120, 180), rgb(0, 30, 60), rgb(0, 120, 180)); }
-        60% { background-image: linear-gradient(135deg, rgb(255, 215, 0), rgb(184, 134, 11), rgb(255, 215, 0)); }
-        80% { background-image: linear-gradient(135deg, rgb(0, 80, 140), rgb(0, 30, 60), rgb(0, 80, 140)); }
-        100% { background-image: linear-gradient(135deg, rgb(3, 53, 116), rgb(0, 30, 60), rgb(3, 53, 116)); }
-    }
-
     .block-container { 
         padding-top: 0rem !important; 
         margin-top: -3rem !important; 
@@ -103,13 +105,29 @@ st.markdown("""
         padding-right: 1rem !important; 
         padding-bottom: 20px !important; 
         max-width: 100% !important; 
-        background-image: linear-gradient(135deg, rgb(3, 53, 116), rgb(0, 30, 60), rgb(3, 53, 116)) !important;
-        background-size: 200% 200% !important;
-        animation: gradientShift 3s ease infinite !important;
-        background-attachment: fixed;
     }
 
-    /* ⭐️ Metric Cards Custom Color */
+    /* ⭐️ MAIN TITLE ALIGNMENT */
+    .main-title {
+        font-size: 2.75rem;
+        font-weight: bold;
+        margin-top: 25px; /* Pushes the title down to align with the right-side clock block */
+    }
+
+    /* ⭐️ BOXES: SOLID rgb(14, 17, 24) - NO SEE THROUGH */
+    [data-testid="stMetric"], 
+    div[data-testid="stHorizontalBlock"]:has([data-testid="stVegaLiteChart"]),
+    div[data-testid="stVerticalBlock"]:has(> div.element-container .top-box-wrapper),
+    div[data-testid="stVerticalBlock"]:has(> div.element-container .bottom-box-wrapper) { 
+        background: rgb(14, 17, 24) !important; 
+        opacity: 1 !important;
+        backdrop-filter: none !important;
+        border: 1px solid rgb(159, 142, 99) !important;
+        border-radius: 8px;
+        box-shadow: 0px 8px 16px rgba(0, 0, 0, 0.8) !important;
+    }
+
+    /* ⭐️ Metric Cards Styled like Rack Units */
     [data-testid="stMetric"] { 
         display: flex; 
         flex-direction: column; 
@@ -117,10 +135,7 @@ st.markdown("""
         justify-content: center; 
         text-align: center; 
         padding: 15px; 
-        background: rgb(14, 17, 24); 
-        border: 1px solid rgb(159, 142, 99); 
-        border-radius: 8px; 
-        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
+        border-top: 3px solid rgb(159, 142, 99) !important; 
         margin-bottom: 15px !important; 
     }
     [data-testid="stMetric"] > div,
@@ -142,11 +157,7 @@ st.markdown("""
 
     /* ⭐️ COMBINED Chart Area Custom Color */
     div[data-testid="stHorizontalBlock"]:has([data-testid="stVegaLiteChart"]) {
-        background: rgb(14, 17, 24); 
-        border: 1px solid rgb(159, 142, 99); 
-        border-radius: 8px; 
         padding: 20px; 
-        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
         margin-top: 0px !important; 
         margin-bottom: 15px !important;
     }
@@ -163,11 +174,7 @@ st.markdown("""
 
     /* ⭐️ TOP STATUS BOX STYLING */
     div[data-testid="stVerticalBlock"]:has(> div.element-container .top-box-wrapper) {
-        background: rgb(14, 17, 24); 
-        border: 1px solid rgb(159, 142, 99); 
-        border-radius: 8px; 
         padding: 12px 20px !important; 
-        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
         margin-bottom: 15px !important; 
     }
     
@@ -184,37 +191,58 @@ st.markdown("""
 
     /* ⭐️ BOTTOM COMBINED BOX */
     div[data-testid="stVerticalBlock"]:has(> div.element-container .bottom-box-wrapper) {
-        background: rgb(14, 17, 24); 
-        border: 1px solid rgb(159, 142, 99); 
-        border-radius: 8px; 
         padding: 20px; 
-        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
         margin-bottom: 0px !important; 
     }
     
-    .header-widget { 
-        text-align: right; 
-        margin-top: 10px; 
-        font-size: 26px; 
-    } 
-    
+    /* ⭐️ HEADER WIDGET (Clock & Weather) */
+    .header-widget { text-align: right; margin-top: 10px; font-size: 26px; } 
+    #live-clock { font-size: 34px !important; } /* Enlarged Clock */
     .weather-text { color: #29b5e8; font-weight: bold; font-size: 30px; }
+    
     .custom-legend { text-align: right; padding-top: 5px; font-size: 15px; font-weight: bold; }
     
-    /* ⭐️ TEXT ALIGNMENT */
-    .op-center-row { 
-        display: flex; 
-        align-items: center; 
-        justify-content: center; 
-        width: 100%; 
-        font-size: 1.5rem; 
-        font-weight: bold; 
-        line-height: 1 !important; 
-        margin: 0 !important; 
-        padding: 0 !important; 
-        transform: translateY(-15px); 
-        position: relative;
+    /* ⭐️ CENTERED CREDIT WIDGET STYLING */
+    .credit-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 15px;
+        margin-top: 12px;
     }
+    .profile-pic {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        border: 2px solid #29b5e8;
+        object-fit: cover;
+        box-shadow: 0px 0px 10px rgba(41, 181, 232, 0.4);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        cursor: pointer;
+    }
+    .profile-pic:hover {
+        transform: scale(1.1);
+        box-shadow: 0px 0px 15px rgba(41, 181, 232, 0.8);
+    }
+    .credit-text {
+        text-align: right;
+        line-height: 1.1;
+    }
+    .credit-name {
+        font-size: 18px;
+        font-weight: bold;
+        color: white;
+    }
+    .credit-title {
+        font-size: 14px;
+        color: #ffeb3b;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-weight: 600;
+    }
+
+    /* ⭐️ TEXT ALIGNMENT */
+    .op-center-row { display: flex; align-items: center; justify-content: center; width: 100%; font-size: 1.5rem; font-weight: bold; line-height: 1 !important; margin: 0 !important; padding: 0 !important; transform: translateY(-15px); position: relative; }
     .top-status-center { display: flex; align-items: center; gap: 0.75rem; justify-content: center; max-width: calc(100% - 280px); white-space: nowrap; font-size: 1.7rem; }
     .top-status-right { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); display: flex; align-items: center; gap: 0.45rem; font-size: 1.1rem; color: #ffeb3b; white-space: nowrap; }
     .top-status-right span { min-width: 64px; text-align: right; }
@@ -225,47 +253,19 @@ st.markdown("""
     
     .status-timer { color: #21c354; font-family: monospace; }
     
-    /* TRUE FLICKERING ANIMATION FOR OFFLINE STATUS */
-    @keyframes blinker {
-        0% { opacity: 1; }
-        50% { opacity: 0.7; }
-        100% { opacity: 1; }
-    }
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-    .status-offline { 
-        color: #ff4b4b; 
-        font-family: monospace;
-        animation: blinker 2s ease-in-out infinite;
-    }
+    @keyframes blinker { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .status-offline { color: #ff4b4b; font-family: monospace; animation: blinker 2s ease-in-out infinite; }
     
-    /* ⭐️ GLOBAL BUTTON BASE */
-    div.stButton > button { 
-        background-color: #ff4b4b !important; 
-        color: white !important; 
-        font-weight: bold !important; 
-        border-radius: 5px; 
-        border: none; 
-        padding: 8px 0 !important; 
-        margin: 0 !important;
-    }
-
-    /* ⭐️ FIX PAGINATION ARROWS */
-    div.element-container:has(.pag-aligner) + div[data-testid="stHorizontalBlock"] div.stButton > button {
-        height: 50px !important; 
-        font-size: 24px !important; 
-        border-radius: 8px !important; 
-        padding: 0 !important;
-        margin-top: 10px !important;
-    }
+    div.stButton > button { background-color: #ff4b4b !important; color: white !important; font-weight: bold !important; border-radius: 5px; border: none; padding: 8px 0 !important; margin: 0 !important; }
+    div.element-container:has(.pag-aligner) + div[data-testid="stHorizontalBlock"] div.stButton > button { height: 50px !important; font-size: 24px !important; border-radius: 8px !important; padding: 0 !important; margin-top: 10px !important; }
     
     .centered-title { display: block; text-align: center !important; width: 100%; margin-bottom: 15px; font-size: 1.75rem; font-weight: 600; }
     .graph-title-shift { padding-left: 38px; font-size: 1.75rem; font-weight: bold; }
     [data-testid="column"] { display: flex; align-items: center; }
     </style>
 """, unsafe_allow_html=True)
+
 
 # Helper for Padding and Pagination
 def get_paged_data(df, page_num, page_size=5):
@@ -292,6 +292,7 @@ def color_status(val):
 current_time_str = current_pst.strftime("%A, %B %d, %Y | %I:%M:%S %p")
 
 try:
+    # Top Left Logo Base64 Loading
     try:
         with open("images/MDTV_Logo.png", "rb") as img_file:
             logo_data = base64.b64encode(img_file.read()).decode()
@@ -358,23 +359,77 @@ try:
     minutes, seconds = divmod(mins_rem, 60)
     uptime_display = f"{prefix}{int(days)}d {int(hours):02}h {int(minutes):02}m {int(seconds):02}s"
 
-    # Apply red background during downtime
-    if status_class == 'status-offline':
-        st.markdown("<style>.block-container { background: linear-gradient(135deg, rgb(139, 0, 0), rgb(50, 0, 0), rgb(139, 0, 0)) !important; animation: none !important; }</style>", unsafe_allow_html=True)
+    # ⭐️ PYTHON-GENERATED DYNAMIC BACKGROUND CSS (PERFECT LOOP) ⭐️
+    random.seed(42) # Ensures background layout is consistent
+    bg_images, bg_sizes, bg_repeats, bg_pos_0, bg_pos_100 = [], [], [], [], []
 
-    # --- TOP HEADER ---
+    # Dynamic Color Check based on Status
+    if status_class == 'status-offline':
+        colors = ['rgba(255, 75, 75, 0.9)', 'rgba(220, 20, 20, 0.8)', 'rgba(180, 0, 0, 0.7)']
+        base_grad = "linear-gradient(135deg, rgb(50, 0, 0), rgb(20, 0, 0), rgb(50, 0, 0))"
+    else:
+        colors = ['rgba(41, 181, 232, 0.8)', 'rgba(255, 235, 59, 0.6)', 'rgba(27, 201, 142, 0.6)']
+        base_grad = "linear-gradient(135deg, rgb(2, 25, 50), rgb(0, 8, 16), rgb(2, 25, 50))" # Darker Base
+
+    # 40 Pure Vertical Streams with Flawless Math Looping
+    for i in range(40):
+        c = random.choice(colors)
+        x = random.randint(1, 99) 
+        h = random.randint(800, 2500) # Exact height of the repeating tile
+        loops = random.randint(1, 4)  # How many full tile cycles happen in 20 seconds
+        direction = random.choice([1, -1])
+        spd = h * loops * direction # Multiplying height by integer guarantees a perfect, invisible loop!
+        
+        bg_images.append(f"linear-gradient(180deg, transparent 0%, transparent 45%, {c} 50%, transparent 55%, transparent 100%)")
+        bg_sizes.append(f"2px {h}px") 
+        bg_repeats.append("repeat-y") 
+        bg_pos_0.append(f"{x}% 0px")  
+        bg_pos_100.append(f"{x}% {spd}px") 
+
+    # Base dark gradient underneath all streams
+    bg_images.append(base_grad)
+    bg_sizes.append("200% 200%")
+    bg_repeats.append("repeat")
+    bg_pos_0.append("0% 50%")
+    bg_pos_100.append("100% 50%")
+
+    dynamic_css = f"""
+    <style>
+    @keyframes dataStreams {{
+        0% {{ background-position: {', '.join(bg_pos_0)}; }}
+        100% {{ background-position: {', '.join(bg_pos_100)}; }}
+    }}
+    .block-container {{ 
+        background-color: rgb(0, 5, 10) !important;
+        background-image: {', '.join(bg_images)} !important;
+        background-size: {', '.join(bg_sizes)} !important;
+        background-repeat: {', '.join(bg_repeats)} !important;
+        animation: dataStreams 20s linear infinite !important;
+        background-attachment: fixed;
+    }}
+    </style>
+    """
+    st.markdown(dynamic_css, unsafe_allow_html=True)
+
+
+    # --- TOP HEADER (Clock & Weather) ---
     header_col1, header_col2 = st.columns([3, 2])
     with header_col1:
-        st.title("Network Operations Center")
+        st.markdown("<div class='main-title'>Network Operations Center</div>", unsafe_allow_html=True)
 
     with header_col2:
         try:
             w_res = requests.get("https://wttr.in/Chula+Vista?format=%c+%t+|+💧+%h", timeout=3)
             weather = w_res.content.decode('utf-8').strip().replace("+", "")
         except: weather = "🌤️ --°F | 💧 --%" 
-        st.markdown(f"<div class='header-widget'><div><strong id='live-clock'>{current_time_str}</strong></div><div class='weather-text'>{weather}</div></div>", unsafe_allow_html=True)
+        
+        st.markdown(f"""
+            <div class='header-widget'>
+                <div><strong id='live-clock'>{current_time_str}</strong></div>
+                <div class='weather-text'>{weather}</div>
+            </div>
+        """, unsafe_allow_html=True)
 
-    # ⭐️ SHORT SPACER: Reduced from 45px to 10px
     st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
 
     # --- ⭐️ PERFECTLY CENTERED TOP STATUS BOX ---
@@ -489,7 +544,7 @@ try:
     else: df_clients_final = pd.DataFrame(columns=['Description', 'OS', 'Status', 'Port'])
 
 
-    # --- ⭐️ COMBINED BOTTOM BOX (Tables + Pagination) ---
+    # --- ⭐️ COMBINED BOTTOM BOX (Tables + Pagination + Centered Credit Widget) ---
     with st.container():
         st.markdown("<div class='bottom-box-wrapper'></div>", unsafe_allow_html=True)
         
@@ -505,78 +560,94 @@ try:
         
         st.markdown("<div class='pag-aligner'></div>", unsafe_allow_html=True)
         
-        _, f_l, _, f_r = st.columns([0.25, 1, 20, 1])
+        # Bottom Layout: [Left Arrow] --- [Centered Credit Widget] --- [Right Arrow]
+        _, f_l, f_m, f_r = st.columns([0.25, 1, 20, 1])
+        
+        # Wrapped the image in an <a> tag pointing to your LinkedIn
+        profile_html = "<a href='https://www.linkedin.com/in/andrew-t-littrell-86279a388/?lipi=urn%3Ali%3Apage%3Ad_flagship3_profile_view_base_contact_details%3B8wV2gQCWQ9aqDUSY55EQIA%3D%3D' target='_blank'><img src='https://github.com/atlittrell2027-coder.png' class='profile-pic' onerror=\"this.src='https://api.dicebear.com/9.x/initials/svg?seed=AL&backgroundColor=29b5e8&textColor=ffffff'\" alt='Andrew Littrell'/></a>"
+
+        credit_html = f"""
+        <div class='credit-container'>
+            <div class='credit-text'>
+                <div class='credit-name'>Andrew Littrell</div>
+                <div class='credit-title'>Network Founder</div>
+            </div>
+            {profile_html}
+        </div>
+        """
+
         with f_l:
             if st.button("←", key="prev_g", disabled=(st.session_state.dashboard_page == 0), width='stretch'):
                 st.session_state.dashboard_page -= 1
                 st.rerun()
+        
+        with f_m:
+            st.markdown(credit_html, unsafe_allow_html=True)
+
         with f_r:
             if st.button("→", key="next_g", disabled=not can_next, width='stretch'):
                 st.session_state.dashboard_page += 1
                 st.rerun()
 
-    # --- LIVE JAVASCRIPT TIMER INJECTION ---
-    state_timestamp_ms = int(state_timestamp.timestamp() * 1000)
-    is_online_js = "true" if is_mx_online else "false"
-    refresh_interval_ms = 60000  # 60 seconds
-
-    js_code = f"""
+    # --- ⭐️ LIVE JAVASCRIPT TIMER INJECTION (Browser-Synced with Cache Busting) ---
+    js_code = """
     <script>
+    // CACHE BUSTER: SERVER_RENDER_TIME_VAL (Forces Streamlit to rebuild the script so Date.now() resets correctly)
     const parentDoc = window.parent.document;
-    const stateTimestampMs = {state_timestamp_ms};
-    const isOnline = {is_online_js};
-    const refreshIntervalMs = {refresh_interval_ms};
-    let lastRefreshTime = Date.now();  // Start at current moment to show 60s on page load
+    const stateTimestampMs = TIMESTAMP_VAL;
+    const isOnline = IS_ONLINE_VAL;
+    const refreshIntervalMs = 60000;
+    
+    // We grab the exact time the browser executes this refreshed code
+    const scriptStartTimeMs = Date.now();
 
-    setInterval(() => {{
+    setInterval(() => {
         const now = new Date();
         const currentTime = now.getTime();
         
-        // Calculate seconds until next refresh
-        const timeSinceLastRefresh = currentTime - lastRefreshTime;
-        const secondsUntilRefresh = Math.ceil((refreshIntervalMs - timeSinceLastRefresh) / 1000);
+        // Timer counts down strictly from when the browser loaded the page
+        const elapsedSinceLoad = currentTime - scriptStartTimeMs;
+        let remainingMs = refreshIntervalMs - elapsedSinceLoad;
+        if (remainingMs <= 0) remainingMs = 0;
         
-        // Show refresh icon for first 3 seconds of each refresh cycle
+        const secondsUntilRefresh = Math.ceil(remainingMs / 1000);
+        
         const refreshIcon = parentDoc.getElementById('refresh-icon');
         const refreshTimer = parentDoc.getElementById('refresh-timer');
         
-        if (refreshIcon && refreshTimer) {{
-            if (timeSinceLastRefresh < 3000) {{
+        if (refreshIcon && refreshTimer) {
+            // Once it hits 0, it will say Refreshing... while it waits for Python to finish fetching new API data
+            if (secondsUntilRefresh <= 0) {
                 refreshIcon.style.display = 'inline';
                 refreshTimer.innerText = 'Refreshing...';
-            }} else {{
+            } else {
                 refreshIcon.style.display = 'none';
                 refreshTimer.innerText = secondsUntilRefresh + 's';
-            }}
+            }
 
-            if (timeSinceLastRefresh < 3000 || secondsUntilRefresh <= 10) {{
+            if (secondsUntilRefresh <= 10 && secondsUntilRefresh > 0) {
                 refreshTimer.classList.add('refresh-alert');
-            }} else {{
+            } else {
                 refreshTimer.classList.remove('refresh-alert');
-            }}
-        }}
-        
-        // Reset refresh timer every 60 seconds
-        if (timeSinceLastRefresh >= refreshIntervalMs) {{
-            lastRefreshTime = currentTime;
-        }}
+            }
+        }
         
         const clockEl = parentDoc.getElementById('live-clock');
-        if (clockEl) {{
-            const formatter = new Intl.DateTimeFormat('en-US', {{ 
+        if (clockEl) {
+            const formatter = new Intl.DateTimeFormat('en-US', { 
                 timeZone: 'America/Los_Angeles', weekday: 'long', year: 'numeric', 
                 month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', 
                 second: '2-digit', hour12: true 
-            }});
+            });
             const parts = formatter.formatToParts(now);
-            const p = {{}};
+            const p = {};
             parts.forEach(part => p[part.type] = part.value);
-            const timeStr = `${{p.weekday}}, ${{p.month}} ${{p.day}}, ${{p.year}} | ${{p.hour}}:${{p.minute}}:${{p.second}} ${{p.dayPeriod}}`;
+            const timeStr = `${p.weekday}, ${p.month} ${p.day}, ${p.year} | ${p.hour}:${p.minute}:${p.second} ${p.dayPeriod}`;
             clockEl.innerText = timeStr;
-        }}
+        }
         
         const timerEl = parentDoc.getElementById('live-timer');
-        if (timerEl) {{
+        if (timerEl) {
             let elapsedMs = now.getTime() - stateTimestampMs;
             if (elapsedMs < 0) elapsedMs = 0;
             let totalSecs = Math.floor(elapsedMs / 1000);
@@ -586,11 +657,16 @@ try:
             let secs = totalSecs % 60;
             const pad = (num) => String(num).padStart(2, '0');
             const prefix = isOnline ? "" : "-";
-            timerEl.innerText = `${{prefix}}${{days}}d ${{pad(hours)}}h ${{pad(mins)}}m ${{pad(secs)}}s`;
-        }}
-    }}, 1000);
+            timerEl.innerText = `${prefix}${days}d ${pad(hours)}h ${pad(mins)}m ${pad(secs)}s`;
+        }
+    }, 1000);
     </script>
     """
+    
+    js_code = js_code.replace("TIMESTAMP_VAL", str(int(state_timestamp.timestamp() * 1000)))
+    # We still inject Python's current timestamp to bust the cache, preventing Streamlit from using old timers
+    js_code = js_code.replace("SERVER_RENDER_TIME_VAL", str(int(current_pst.timestamp() * 1000)))
+    js_code = js_code.replace("IS_ONLINE_VAL", "true" if is_mx_online else "false")
     components.html(js_code, height=0, width=0)
 
 except Exception as e: st.error(f"Critical Error: {e}")
