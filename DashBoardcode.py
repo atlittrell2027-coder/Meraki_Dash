@@ -462,10 +462,34 @@ try:
 
     col1, col2, col3, col4, col5, col6 = st.columns([1, 1, 1, 1, 1, 1])
     online_count = sum(1 for d in net_devices if d['status'].lower() == 'online')
-    col1.metric("Infrastructure Status", "ONLINE" if is_mx_online else "OFFLINE", f"{online_count}/{len(net_devices)} Connected")
+    total_devices = len(net_devices)
+    
+    # ⭐️ DYNAMIC HEALTH SCORE CALCULATION
+    if total_devices > 0:
+        health_score = int((online_count / total_devices) * 100)
+    else:
+        health_score = 100
+        
+    # If the main firewall is offline, network health plummets to 0
+    if not is_mx_online:
+        health_score = 0
+        
+    # By removing the manual arrows, Streamlit will now generate them automatically
+    # Positive strings get an up arrow automatically, negative strings get a down arrow.
+    if health_score == 100:
+        health_delta = "Optimal"
+        health_color = "normal"
+    elif health_score >= 75:
+        health_delta = "- Degraded"
+        health_color = "normal"
+    else:
+        health_delta = "- Critical"
+        health_color = "normal"
+
+    col1.metric("Infrastructure Status", "ONLINE" if is_mx_online else "OFFLINE", f"{online_count}/{total_devices} Connected")
     active_clients = sum(1 for c in clients_list if str(c.get('status', '')).lower() == 'online')
     col2.metric("Active Client Devices", f"{active_clients}", "Connected")
-    col3.metric("Network Health Score", "100%", "Optimal")
+    col3.metric("Network Health Score", f"{health_score}%", health_delta, delta_color=health_color)
     col4.metric("WAN Total (Live)", f"{latest['Download (MB)'] + latest['Upload (MB)']:.2f} MB", delta=f"{delta_total:.2f} MB", delta_color=get_delta_color(delta_total))
     col5.metric("WAN Download (Live)", f"{latest['Download (MB)']:.2f} MB", delta=f"{delta_dl:.2f} MB", delta_color=get_delta_color(delta_dl))
     col6.metric("WAN Upload (Live)", f"{latest['Upload (MB)']:.2f} MB", delta=f"{delta_ul:.2f} MB", delta_color=get_delta_color(delta_ul))
