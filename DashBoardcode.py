@@ -474,7 +474,6 @@ try:
     if not is_mx_online:
         health_score = 0
         
-    # By removing the manual arrows, Streamlit will now generate them automatically
     # Positive strings get an up arrow automatically, negative strings get a down arrow.
     if health_score == 100:
         health_delta = "Optimal"
@@ -536,23 +535,41 @@ try:
         else: st.info("Gathering traffic data...")
     
     # --- HARDENED DUAL TABLES GATHERING ---
-    df_infra_all = pd.DataFrame(net_devices)[['name', 'model', 'status', 'mac']]
-    df_infra_all['is_online'] = df_infra_all['status'] == 'online'
-    
-    device_usage = {}
-    for c in clients_list:
-        mac = str(c.get('recentDeviceMac', '')).lower()
-        if mac:
-            usage_dict = c.get('usage') or {} 
-            usage = usage_dict.get('sent', 0) + usage_dict.get('recv', 0)
-            device_usage[mac] = device_usage.get(mac, 0) + usage
+    df_infra_all = pd.DataFrame(net_devices)
+    if not df_infra_all.empty:
+        df_infra_all = df_infra_all[['name', 'model', 'status', 'mac']]
+        df_infra_all['is_online'] = df_infra_all['status'] == 'online'
+        
+        device_usage = {}
+        for c in clients_list:
+            # ⭐️ FIX: Aggressively strip colons and hyphens to guarantee MAC match between device list and clients list
+            mac = str(c.get('recentDeviceMac', '')).lower().replace(':', '').replace('-', '')
+            if mac:
+                usage_dict = c.get('usage') or {} 
+                # Meraki returns sent/recv usage in KB
+                usage = usage_dict.get('sent', 0) + usage_dict.get('recv', 0)
+                device_usage[mac] = device_usage.get(mac, 0) + usage
 
-    df_infra_all['traffic_raw'] = df_infra_all['mac'].str.lower().map(device_usage).fillna(0)
-    df_infra_all['Total Traffic (30d)'] = df_infra_all['traffic_raw'].apply(lambda x: f"{x / 1048576:.2f} GB")
-    df_infra_all['status'] = df_infra_all['status'].str.upper().map({'ONLINE': '↑ ONLINE', 'OFFLINE': '↓ OFFLINE'}).fillna('⚠️ ALERT')
-    df_infra_all['is_alert'] = df_infra_all['status'] == '⚠️ ALERT'
-    df_infra_all['is_online'] = df_infra_all['status'].str.contains('ONLINE', na=False)
-    df_infra_final = df_infra_all.sort_values(by=['is_alert', 'is_online', 'traffic_raw'], ascending=[False, False, False])[['name', 'model', 'status', 'Total Traffic (30d)']].rename(columns={'name':'Name', 'model':'Model', 'status':'Status'})
+        df_infra_all['clean_mac'] = df_infra_all['mac'].astype(str).str.lower().str.replace(':', '').str.replace('-', '')
+        df_infra_all['traffic_raw'] = df_infra_all['clean_mac'].map(device_usage).fillna(0)
+        
+        # ⭐️ FIX: Dynamic Traffic Formatting so smaller amounts show as MB instead of 0.00 GB
+        def format_kb(kb):
+            if kb == 0:
+                return "0.00 MB"
+            elif kb >= 1048576: # 1 GB in KB
+                return f"{kb / 1048576:.2f} GB"
+            else:
+                return f"{kb / 1024:.2f} MB"
+                
+        df_infra_all['Total Traffic (30d)'] = df_infra_all['traffic_raw'].apply(format_kb)
+        
+        df_infra_all['status'] = df_infra_all['status'].str.upper().map({'ONLINE': '↑ ONLINE', 'OFFLINE': '↓ OFFLINE'}).fillna('⚠️ ALERT')
+        df_infra_all['is_alert'] = df_infra_all['status'] == '⚠️ ALERT'
+        df_infra_all['is_online'] = df_infra_all['status'].str.contains('ONLINE', na=False)
+        df_infra_final = df_infra_all.sort_values(by=['is_alert', 'is_online', 'traffic_raw'], ascending=[False, False, False])[['name', 'model', 'status', 'Total Traffic (30d)']].rename(columns={'name':'Name', 'model':'Model', 'status':'Status'})
+    else:
+        df_infra_final = pd.DataFrame(columns=['Name', 'Model', 'Status', 'Total Traffic (30d)'])
 
     df_clients_all = pd.DataFrame(clients_list)
     if not df_clients_all.empty:
@@ -580,7 +597,7 @@ try:
             st.markdown("<div class='centered-title'>💻 Recent Connected Clients</div>", unsafe_allow_html=True)
             st.dataframe(get_paged_data(df_clients_final, st.session_state.dashboard_page).style.map(color_status, subset=['Status']), width="stretch", hide_index=True)
 
-        can_next = (st.session_state.dashboard_page + 1) * 5 < max(len(df_infra_all), len(df_clients_all))
+        can_next = (st.session_state.dashboard_page + 1) * 5 < max(len(df_infra_all) if not df_infra_all.empty else 0, len(df_clients_all) if not df_clients_all.empty else 0)
         
         st.markdown("<div class='pag-aligner'></div>", unsafe_allow_html=True)
         
