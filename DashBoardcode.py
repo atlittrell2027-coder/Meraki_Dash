@@ -13,7 +13,6 @@ import pytz
 from streamlit_autorefresh import st_autorefresh
 import altair as alt
 import base64
-import streamlit_extras
 
 # ⏱ APP REFRESH (Meraki Grab): Refreshes the Python backend every 60 seconds
 st_autorefresh(interval=60000, limit=None, key="meraki_refresh_timer")
@@ -77,7 +76,7 @@ st.markdown("""
     }
 
     /* ⭐️ HIDE THE STREAMLIT DEFAULT TOP HEADER BAR & TOOLBAR */
-    [data-testid="stHeader"], [data-testid="stToolbar"], footer { 
+    [data-testid="stHeader"], [data-testid="stToolbar"], footer, [data-testid="collapsedControl"] { 
         display: none !important; 
         visibility: hidden !important; 
     }
@@ -257,8 +256,17 @@ st.markdown("""
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     .status-offline { color: #ff4b4b; font-family: monospace; animation: blinker 2s ease-in-out infinite; }
     
-    div.stButton > button { background-color: #ff4b4b !important; color: white !important; font-weight: bold !important; border-radius: 5px; border: none; padding: 8px 0 !important; margin: 0 !important; }
-    div.element-container:has(.pag-aligner) + div[data-testid="stHorizontalBlock"] div.stButton > button { height: 50px !important; font-size: 24px !important; border-radius: 8px !important; padding: 0 !important; margin-top: 10px !important; }
+    div.stButton > button { background-color: #ff4b4b !important; color: white !important; font-weight: bold !important; border-radius: 5px; border: none; padding: 8px 0 !important; margin: 0 !important; transition: all 0.2s ease-in-out; }
+    div.stButton > button:hover { background-color: #29b5e8 !important; border-color: #29b5e8 !important; color: #000 !important; transform: scale(1.02); }
+    
+    /* ⭐️ Bottom Row Control Panel Styles (Applies to arrows AND the Rack button) */
+    div.element-container:has(.pag-aligner) + div[data-testid="stHorizontalBlock"] div.stButton > button { 
+        height: 50px !important; 
+        font-size: 18px !important; 
+        border-radius: 8px !important; 
+        padding: 0 !important; 
+        margin-top: 10px !important; 
+    }
     
     .centered-title { display: block; text-align: center !important; width: 100%; margin-bottom: 15px; font-size: 1.75rem; font-weight: 600; }
     .graph-title-shift { padding-left: 38px; font-size: 1.75rem; font-weight: bold; }
@@ -313,7 +321,16 @@ try:
     try: traffic_data = dashboard.networks.getNetworkTraffic(network_id, timespan=7200)
     except: traffic_data = []
 
-    net_devices = [d for d in devices if d['networkId'] == network_id]
+    # ⭐️ SMART AP FILTER: Purge offline MR devices so they don't break the tables or health score
+    net_devices = []
+    for d in devices:
+        if d['networkId'] == network_id:
+            model = d.get('model', '').upper()
+            status = d.get('status', '').lower()
+            if model.startswith('MR') and status != 'online':
+                continue # Skip dead APs
+            net_devices.append(d)
+
     mx_device = next((d for d in net_devices if 'MX85' in d.get('model', '').upper()), None)
 
     # --- TRAFFIC GATHERING FOR TIMER LOGIC ---
@@ -360,25 +377,23 @@ try:
     uptime_display = f"{prefix}{int(days)}d {int(hours):02}h {int(minutes):02}m {int(seconds):02}s"
 
     # ⭐️ PYTHON-GENERATED DYNAMIC BACKGROUND CSS (PERFECT LOOP) ⭐️
-    random.seed(42) # Ensures background layout is consistent
+    random.seed(42)
     bg_images, bg_sizes, bg_repeats, bg_pos_0, bg_pos_100 = [], [], [], [], []
 
-    # Dynamic Color Check based on Status
     if status_class == 'status-offline':
         colors = ['rgba(255, 75, 75, 0.9)', 'rgba(220, 20, 20, 0.8)', 'rgba(180, 0, 0, 0.7)']
         base_grad = "linear-gradient(135deg, rgb(50, 0, 0), rgb(20, 0, 0), rgb(50, 0, 0))"
     else:
         colors = ['rgba(41, 181, 232, 0.8)', 'rgba(255, 235, 59, 0.6)', 'rgba(27, 201, 142, 0.6)']
-        base_grad = "linear-gradient(135deg, rgb(2, 25, 50), rgb(0, 8, 16), rgb(2, 25, 50))" # Darker Base
+        base_grad = "linear-gradient(135deg, rgb(2, 25, 50), rgb(0, 8, 16), rgb(2, 25, 50))" 
 
-    # 40 Pure Vertical Streams with Flawless Math Looping
     for i in range(40):
         c = random.choice(colors)
         x = random.randint(1, 99) 
-        h = random.randint(800, 2500) # Exact height of the repeating tile
-        loops = random.randint(1, 4)  # How many full tile cycles happen in 20 seconds
+        h = random.randint(800, 2500) 
+        loops = random.randint(1, 4) 
         direction = random.choice([1, -1])
-        spd = h * loops * direction # Multiplying height by integer guarantees a perfect, invisible loop!
+        spd = h * loops * direction 
         
         bg_images.append(f"linear-gradient(180deg, transparent 0%, transparent 45%, {c} 50%, transparent 55%, transparent 100%)")
         bg_sizes.append(f"2px {h}px") 
@@ -386,7 +401,6 @@ try:
         bg_pos_0.append(f"{x}% 0px")  
         bg_pos_100.append(f"{x}% {spd}px") 
 
-    # Base dark gradient underneath all streams
     bg_images.append(base_grad)
     bg_sizes.append("200% 200%")
     bg_repeats.append("repeat")
@@ -412,8 +426,9 @@ try:
     st.markdown(dynamic_css, unsafe_allow_html=True)
 
 
-    # --- TOP HEADER (Clock & Weather) ---
+    # --- TOP HEADER ---
     header_col1, header_col2 = st.columns([3, 2])
+    
     with header_col1:
         st.markdown("<div class='main-title'>Network Operations Center</div>", unsafe_allow_html=True)
 
@@ -470,11 +485,9 @@ try:
     else:
         health_score = 100
         
-    # If the main firewall is offline, network health plummets to 0
     if not is_mx_online:
         health_score = 0
         
-    # Positive strings get an up arrow automatically, negative strings get a down arrow.
     if health_score == 100:
         health_delta = "Optimal"
         health_color = "normal"
@@ -542,28 +555,21 @@ try:
         
         device_usage = {}
         for c in clients_list:
-            # ⭐️ FIX: Aggressively strip colons and hyphens to guarantee MAC match between device list and clients list
             mac = str(c.get('recentDeviceMac', '')).lower().replace(':', '').replace('-', '')
             if mac:
                 usage_dict = c.get('usage') or {} 
-                # Meraki returns sent/recv usage in KB
                 usage = usage_dict.get('sent', 0) + usage_dict.get('recv', 0)
                 device_usage[mac] = device_usage.get(mac, 0) + usage
 
         df_infra_all['clean_mac'] = df_infra_all['mac'].astype(str).str.lower().str.replace(':', '').str.replace('-', '')
         df_infra_all['traffic_raw'] = df_infra_all['clean_mac'].map(device_usage).fillna(0)
         
-        # ⭐️ FIX: Dynamic Traffic Formatting so smaller amounts show as MB instead of 0.00 GB
         def format_kb(kb):
-            if kb == 0:
-                return "0.00 MB"
-            elif kb >= 1048576: # 1 GB in KB
-                return f"{kb / 1048576:.2f} GB"
-            else:
-                return f"{kb / 1024:.2f} MB"
+            if kb == 0: return "0.00 MB"
+            elif kb >= 1048576: return f"{kb / 1048576:.2f} GB"
+            else: return f"{kb / 1024:.2f} MB"
                 
         df_infra_all['Total Traffic (30d)'] = df_infra_all['traffic_raw'].apply(format_kb)
-        
         df_infra_all['status'] = df_infra_all['status'].str.upper().map({'ONLINE': '↑ ONLINE', 'OFFLINE': '↓ OFFLINE'}).fillna('⚠️ ALERT')
         df_infra_all['is_alert'] = df_infra_all['status'] == '⚠️ ALERT'
         df_infra_all['is_online'] = df_infra_all['status'].str.contains('ONLINE', na=False)
@@ -601,8 +607,8 @@ try:
         
         st.markdown("<div class='pag-aligner'></div>", unsafe_allow_html=True)
         
-        # Bottom Layout: [Left Arrow] --- [Centered Credit Widget] --- [Right Arrow]
-        _, f_l, f_m, f_r = st.columns([0.25, 1, 20, 1])
+        # ⭐️ Bottom Layout: [Left Arrow] --- [Hardware Rack Button] --- [Centered Credit Widget] --- [Spacer] --- [Right Arrow]
+        _, f_l, f_btn, f_m, f_spacer, f_r = st.columns([0.25, 1, 3.5, 10, 3.5, 1])
         
         # Wrapped the image in an <a> tag pointing to your LinkedIn
         profile_html = "<a href='https://www.linkedin.com/in/andrew-t-littrell-86279a388/?lipi=urn%3Ali%3Apage%3Ad_flagship3_profile_view_base_contact_details%3B8wV2gQCWQ9aqDUSY55EQIA%3D%3D' target='_blank'><img src='https://github.com/atlittrell2027-coder.png' class='profile-pic' onerror=\"this.src='https://api.dicebear.com/9.x/initials/svg?seed=AL&backgroundColor=29b5e8&textColor=ffffff'\" alt='Andrew Littrell'/></a>"
@@ -621,6 +627,10 @@ try:
             if st.button("←", key="prev_g", disabled=(st.session_state.dashboard_page == 0), width='stretch'):
                 st.session_state.dashboard_page -= 1
                 st.rerun()
+                
+        with f_btn:
+            if st.button("🖧 Hardware Rack", use_container_width=True):
+                st.switch_page("pages/1_Hardware_Rack.py")
         
         with f_m:
             st.markdown(credit_html, unsafe_allow_html=True)
@@ -657,7 +667,6 @@ try:
         const refreshTimer = parentDoc.getElementById('refresh-timer');
         
         if (refreshIcon && refreshTimer) {
-            // Once it hits 0, it will say Refreshing... while it waits for Python to finish fetching new API data
             if (secondsUntilRefresh <= 0) {
                 refreshIcon.style.display = 'inline';
                 refreshTimer.innerText = 'Refreshing...';
@@ -705,7 +714,6 @@ try:
     """
     
     js_code = js_code.replace("TIMESTAMP_VAL", str(int(state_timestamp.timestamp() * 1000)))
-    # We still inject Python's current timestamp to bust the cache, preventing Streamlit from using old timers
     js_code = js_code.replace("SERVER_RENDER_TIME_VAL", str(int(current_pst.timestamp() * 1000)))
     js_code = js_code.replace("IS_ONLINE_VAL", "true" if is_mx_online else "false")
     components.html(js_code, height=0, width=0)
