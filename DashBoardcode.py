@@ -64,6 +64,11 @@ if not state_file.exists():
 # ⭐️ STATIC CSS: Layout, Colors, and Hiding Elements
 st.markdown("""
     <style>
+    /* ⭐️ MAC EMOJI FIX: Force Apple Color Emoji rendering across the entire app */
+    * {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol" !important;
+    }
+
     /* ⭐️ HIDE SCROLLBAR BUT KEEP SCROLLING */
     ::-webkit-scrollbar {
         display: none !important;
@@ -110,14 +115,16 @@ st.markdown("""
     .main-title {
         font-size: 2.75rem;
         font-weight: bold;
-        margin-top: 25px; /* Pushes the title down to align with the right-side clock block */
+        margin-top: 25px; 
     }
 
     /* ⭐️ BOXES: SOLID rgb(14, 17, 24) - NO SEE THROUGH */
     [data-testid="stMetric"], 
     div[data-testid="stHorizontalBlock"]:has([data-testid="stVegaLiteChart"]),
     div[data-testid="stVerticalBlock"]:has(> div.element-container .top-box-wrapper),
-    div[data-testid="stVerticalBlock"]:has(> div.element-container .bottom-box-wrapper) { 
+    div[data-testid="stVerticalBlock"]:has(> div.element-container .services-box-wrapper),
+    div[data-testid="stVerticalBlock"]:has(> div.element-container .bottom-box-wrapper),
+    div[data-testid="stVerticalBlock"]:has(> div.element-container .credit-box-wrapper) { 
         background: rgb(14, 17, 24) !important; 
         opacity: 1 !important;
         backdrop-filter: none !important;
@@ -158,13 +165,16 @@ st.markdown("""
     div[data-testid="stHorizontalBlock"]:has([data-testid="stVegaLiteChart"]) {
         padding: 20px; 
         margin-top: 0px !important; 
-        margin-bottom: 15px !important;
+        margin-bottom: 10px !important;
     }
 
     /* ⭐️ KILL INVISIBLE WRAPPERS TAKING UP HEIGHT */
     div.element-container:has(.top-box-wrapper),
+    div.element-container:has(.services-box-wrapper),
     div.element-container:has(.bottom-box-wrapper),
-    div.element-container:has(.pag-aligner) {
+    div.element-container:has(.credit-box-wrapper),
+    div.element-container:has(.pag-aligner),
+    div.element-container:has(.bottom-btn-aligner) {
         height: 0px !important;
         min-height: 0px !important;
         margin: 0px !important;
@@ -187,16 +197,38 @@ st.markdown("""
         margin-bottom: 0 !important;
         padding-bottom: 0 !important;
     }
-
-    /* ⭐️ BOTTOM COMBINED BOX */
+    
+    /* ⭐️ BOTTOM COMBINED BOX (TABLES) */
     div[data-testid="stVerticalBlock"]:has(> div.element-container .bottom-box-wrapper) {
         padding: 20px; 
+        margin-bottom: 10px !important;
+    }
+
+    /* ⭐️ SERVICES BOX STYLING */
+    div[data-testid="stVerticalBlock"]:has(> div.element-container .services-box-wrapper) {
+        padding: 15px 20px 20px 20px !important; 
+        margin-bottom: 10px !important; 
+    }
+
+    /* ⭐️ DEDICATED CREDIT BOX STYLING (SQUASHED HEIGHT) */
+    div[data-testid="stVerticalBlock"]:has(> div.element-container .credit-box-wrapper) {
+        padding: 10px 20px 10px 20px !important; /* Aggressively reduced padding */
         margin-bottom: 0px !important; 
     }
-    
+    /* Kill the annoying Streamlit bottom margins inside the credit box */
+    div[data-testid="stVerticalBlock"]:has(> div.element-container .credit-box-wrapper) div.element-container {
+        margin-bottom: 0 !important;
+        padding-bottom: 0 !important;
+    }
+    div[data-testid="stVerticalBlock"]:has(> div.element-container .credit-box-wrapper) [data-testid="column"] {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
     /* ⭐️ HEADER WIDGET (Clock & Weather) */
     .header-widget { text-align: right; margin-top: 10px; font-size: 26px; } 
-    #live-clock { font-size: 34px !important; } /* Enlarged Clock */
+    #live-clock { font-size: 34px !important; } 
     .weather-text { color: #29b5e8; font-weight: bold; font-size: 30px; }
     
     .custom-legend { text-align: right; padding-top: 5px; font-size: 15px; font-weight: bold; }
@@ -207,7 +239,8 @@ st.markdown("""
         align-items: center;
         justify-content: center;
         gap: 15px;
-        margin-top: 12px;
+        height: 50px;
+        margin: 0px !important; /* Stripped top margin to keep it perfectly centered */
     }
     .profile-pic {
         width: 50px;
@@ -259,18 +292,63 @@ st.markdown("""
     div.stButton > button { background-color: #ff4b4b !important; color: white !important; font-weight: bold !important; border-radius: 5px; border: none; padding: 8px 0 !important; margin: 0 !important; transition: all 0.2s ease-in-out; }
     div.stButton > button:hover { background-color: #29b5e8 !important; border-color: #29b5e8 !important; color: #000 !important; transform: scale(1.02); }
     
-    /* ⭐️ Bottom Row Control Panel Styles (Applies to arrows AND the Rack button) */
-    div.element-container:has(.pag-aligner) + div[data-testid="stHorizontalBlock"] div.stButton > button { 
+    /* Applies height to both Pagination buttons and the Hardware Rack button */
+    div.element-container:has(.pag-aligner) + div[data-testid="stHorizontalBlock"] div.stButton > button,
+    div.element-container:has(.bottom-btn-aligner) + div.stButton > button { 
         height: 50px !important; 
         font-size: 18px !important; 
         border-radius: 8px !important; 
         padding: 0 !important; 
-        margin-top: 10px !important; 
+        margin-top: 0px !important; /* Stripped top margin to keep it perfectly centered */
     }
     
     .centered-title { display: block; text-align: center !important; width: 100%; margin-bottom: 15px; font-size: 1.75rem; font-weight: 600; }
     .graph-title-shift { padding-left: 38px; font-size: 1.75rem; font-weight: bold; }
     [data-testid="column"] { display: flex; align-items: center; }
+
+    /* ⭐️ NESTED SERVICE CARDS & BUTTONS */
+    .service-card { 
+        background: rgb(8, 10, 15); 
+        border: 1px solid #333; 
+        border-radius: 6px; 
+        padding: 18px 10px; 
+        text-align: center; 
+        box-shadow: inset 0px 4px 8px rgba(0,0,0,0.5); 
+        margin-bottom: 5px; 
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: center;
+        transition: transform 0.2s ease, border-color 0.2s ease; 
+    }
+    .service-card:hover { transform: translateY(-3px); border-color: #444; }
+    
+    .service-title { font-size: 1.5rem; font-weight: bold; color: white; margin-bottom: 4px; }
+    .service-desc { font-size: 0.95rem; color: #a0a0a0; margin-bottom: 12px; font-style: italic; }
+    
+    .status-badge { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: bold; margin-bottom: 12px; }
+    .badge-online { background-color: #0e3d2f; color: #21c354; border: 1px solid #21c354; }
+    .badge-soon { background-color: #4d3d0e; color: #ffeb3b; border: 1px solid #ffeb3b; }
+    .badge-offline { background-color: #3d0e0e; color: #ff4b4b; border: 1px solid #ff4b4b; }
+    
+    /* URL Action Buttons inside the cards */
+    .service-btn-active {
+        display: block; width: 80%; padding: 8px 0; border-radius: 4px;
+        background-color: transparent; border: 1px solid #29b5e8; color: #29b5e8 !important;
+        text-decoration: none !important; font-weight: bold; font-size: 0.9rem;
+        transition: all 0.2s ease; margin: 0 auto;
+    }
+    .service-btn-active:hover {
+        background-color: #29b5e8; color: #000 !important; box-shadow: 0 0 10px #29b5e8; transform: scale(1.02);
+    }
+    
+    .service-btn-disabled {
+        display: block; width: 80%; padding: 8px 0; border-radius: 4px;
+        background-color: #1a1a1a; border: 1px solid #333; color: #555 !important;
+        text-decoration: none !important; font-weight: bold; font-size: 0.9rem;
+        cursor: not-allowed; margin: 0 auto;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -321,17 +399,17 @@ try:
     try: traffic_data = dashboard.networks.getNetworkTraffic(network_id, timespan=7200)
     except: traffic_data = []
 
-    # ⭐️ SMART AP FILTER: Purge offline MR devices so they don't break the tables or health score
+    # ⭐️ SMART AP FILTER
     net_devices = []
     for d in devices:
         if d['networkId'] == network_id:
             model = d.get('model', '').upper()
             status = d.get('status', '').lower()
             if model.startswith('MR') and status != 'online':
-                continue # Skip dead APs
+                continue
             net_devices.append(d)
 
-    mx_device = next((d for d in net_devices if 'MX85' in d.get('model', '').upper()), None)
+    mx_device = next((d for d in net_devices if 'MX' in d.get('model', '').upper()), None)
 
     # --- TRAFFIC GATHERING FOR TIMER LOGIC ---
     graph_data = []
@@ -376,7 +454,7 @@ try:
     minutes, seconds = divmod(mins_rem, 60)
     uptime_display = f"{prefix}{int(days)}d {int(hours):02}h {int(minutes):02}m {int(seconds):02}s"
 
-    # ⭐️ PYTHON-GENERATED DYNAMIC BACKGROUND CSS (PERFECT LOOP) ⭐️
+    # ⭐️ PYTHON-GENERATED DYNAMIC BACKGROUND CSS
     random.seed(42)
     bg_images, bg_sizes, bg_repeats, bg_pos_0, bg_pos_100 = [], [], [], [], []
 
@@ -447,7 +525,7 @@ try:
 
     st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
 
-    # --- ⭐️ PERFECTLY CENTERED TOP STATUS BOX ---
+    # --- PERFECTLY CENTERED TOP STATUS BOX ---
     with st.container():
         st.markdown("<div class='top-box-wrapper'></div>", unsafe_allow_html=True)
         st.markdown(
@@ -479,7 +557,6 @@ try:
     online_count = sum(1 for d in net_devices if d['status'].lower() == 'online')
     total_devices = len(net_devices)
     
-    # ⭐️ DYNAMIC HEALTH SCORE CALCULATION
     if total_devices > 0:
         health_score = int((online_count / total_devices) * 100)
     else:
@@ -546,6 +623,7 @@ try:
             ).properties(height=300)
             st.altair_chart(app_chart, width='stretch')
         else: st.info("Gathering traffic data...")
+
     
     # --- HARDENED DUAL TABLES GATHERING ---
     df_infra_all = pd.DataFrame(net_devices)
@@ -591,7 +669,7 @@ try:
     else: df_clients_final = pd.DataFrame(columns=['Description', 'OS', 'Status', 'Port'])
 
 
-    # --- ⭐️ COMBINED BOTTOM BOX (Tables + Pagination + Centered Credit Widget) ---
+    # --- COMBINED BOTTOM BOX (Tables & Navigation) ---
     with st.container():
         st.markdown("<div class='bottom-box-wrapper'></div>", unsafe_allow_html=True)
         
@@ -605,58 +683,109 @@ try:
 
         can_next = (st.session_state.dashboard_page + 1) * 5 < max(len(df_infra_all) if not df_infra_all.empty else 0, len(df_clients_all) if not df_clients_all.empty else 0)
         
+        # ⭐️ SIMPLIFIED PAGINATION ROW
         st.markdown("<div class='pag-aligner'></div>", unsafe_allow_html=True)
+        _, f_l, f_spacer, f_r, _ = st.columns([0.1, 1, 8, 1, 0.1])
         
-        # ⭐️ Bottom Layout: [Left Arrow] --- [Hardware Rack Button] --- [Centered Credit Widget] --- [Spacer] --- [Right Arrow]
-        _, f_l, f_btn, f_m, f_spacer, f_r = st.columns([0.25, 1, 3.5, 10, 3.5, 1])
-        
-        # Wrapped the image in an <a> tag pointing to your LinkedIn
-        profile_html = "<a href='https://www.linkedin.com/in/andrew-t-littrell-86279a388/?lipi=urn%3Ali%3Apage%3Ad_flagship3_profile_view_base_contact_details%3B8wV2gQCWQ9aqDUSY55EQIA%3D%3D' target='_blank'><img src='https://github.com/atlittrell2027-coder.png' class='profile-pic' onerror=\"this.src='https://api.dicebear.com/9.x/initials/svg?seed=AL&backgroundColor=29b5e8&textColor=ffffff'\" alt='Andrew Littrell'/></a>"
-
-        credit_html = f"""
-        <div class='credit-container'>
-            <div class='credit-text'>
-                <div class='credit-name'>Andrew Littrell</div>
-                <div class='credit-title'>Network Founder</div>
-            </div>
-            {profile_html}
-        </div>
-        """
-
         with f_l:
-            if st.button("←", key="prev_g", disabled=(st.session_state.dashboard_page == 0), width='stretch'):
+            if st.button("←", key="prev_g", disabled=(st.session_state.dashboard_page == 0), use_container_width=True):
                 st.session_state.dashboard_page -= 1
                 st.rerun()
                 
-        with f_btn:
-            if st.button("🖧 Hardware Rack", use_container_width=True):
-                st.switch_page("pages/1_Hardware_Rack.py")
-        
-        with f_m:
-            st.markdown(credit_html, unsafe_allow_html=True)
-
         with f_r:
-            if st.button("→", key="next_g", disabled=not can_next, width='stretch'):
+            if st.button("→", key="next_g", disabled=not can_next, use_container_width=True):
                 st.session_state.dashboard_page += 1
                 st.rerun()
 
-    # --- ⭐️ LIVE JAVASCRIPT TIMER INJECTION (Browser-Synced with Cache Busting) ---
+
+    # --- SERVICES BOX ---
+    with st.container():
+        st.markdown("<div class='services-box-wrapper'></div>", unsafe_allow_html=True)
+        st.markdown("<div class='centered-title' style='margin-bottom: 15px;'>🛠️ Network Services & Capabilities</div>", unsafe_allow_html=True)
+        
+        srv_col1, srv_col2, srv_col3 = st.columns(3)
+        
+        with srv_col1:
+            st.markdown(f"""
+            <div class='service-card'>
+                <div>
+                    <div class='service-title'>💾 NAS</div>
+                    <div class='service-desc'>Network Attached Storage</div>
+                    <div class='status-badge badge-soon'>⏳ COMING SOON</div>
+                </div>
+                <a href="#" target="_blank" class="service-btn-disabled">🔗 Web Portal</a>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        with srv_col2:
+            st.markdown(f"""
+            <div class='service-card'>
+                <div>
+                    <div class='service-title'>🎬 Plex Server</div>
+                    <div class='service-desc'>Local Streaming Service</div>
+                    <div class='status-badge badge-soon'>⏳ COMING SOON</div>
+                </div>
+                <a href="#" target="_blank" class="service-btn-disabled">🔗 Launch App</a>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        with srv_col3:
+            st.markdown(f"""
+            <div class='service-card'>
+                <div>
+                    <div class='service-title'>📶 WIFI</div>
+                    <div class='service-desc'>~1GB Upload & Download</div>
+                    <div class='status-badge badge-soon'>⏳ COMING SOON</div>
+                </div>
+                <a href="#" target="_blank" class="service-btn-disabled">🔗 Config</a>
+            </div>
+            """, unsafe_allow_html=True)
+
+
+    # --- ⭐️ CREDIT BOX (HARDWARE BUTTON + NAMEPLATE) ⭐️ ---
+    with st.container():
+        st.markdown("<div class='credit-box-wrapper'></div>", unsafe_allow_html=True)
+        
+        # 3-Column Split: [Left: Button] [Center: Nameplate] [Right: Ghost Spacer]
+        bot_col1, bot_col2, bot_col3 = st.columns([1, 2, 1])
+        
+        with bot_col1:
+            st.markdown("<div class='bottom-btn-aligner'></div>", unsafe_allow_html=True)
+            if st.button("🖧 Hardware Rack", use_container_width=True):
+                st.switch_page("pages/1_Hardware_Rack.py")
+                
+        with bot_col2:
+            profile_html = "<a href='https://www.linkedin.com/in/andrew-t-littrell-86279a388/?lipi=urn%3Ali%3Apage%3Ad_flagship3_profile_view_base_contact_details%3B8wV2gQCWQ9aqDUSY55EQIA%3D%3D' target='_blank'><img src='https://github.com/atlittrell2027-coder.png' class='profile-pic' onerror=\"this.src='https://api.dicebear.com/9.x/initials/svg?seed=AL&backgroundColor=29b5e8&textColor=ffffff'\" alt='Andrew Littrell'/></a>"
+
+            credit_html = f"""
+            <div class='credit-container'>
+                <div class='credit-text'>
+                    <div class='credit-name'>Andrew Littrell</div>
+                    <div class='credit-title'>Network Founder</div>
+                </div>
+                {profile_html}
+            </div>
+            """
+            st.markdown(credit_html, unsafe_allow_html=True)
+            
+        with bot_col3:
+            # Ghost spacer prevents the right column from collapsing!
+            st.markdown("<div style='visibility: hidden; height: 50px;'>spacer</div>", unsafe_allow_html=True)
+
+    # --- LIVE JAVASCRIPT TIMER INJECTION ---
     js_code = """
     <script>
-    // CACHE BUSTER: SERVER_RENDER_TIME_VAL (Forces Streamlit to rebuild the script so Date.now() resets correctly)
     const parentDoc = window.parent.document;
     const stateTimestampMs = TIMESTAMP_VAL;
     const isOnline = IS_ONLINE_VAL;
     const refreshIntervalMs = 60000;
     
-    // We grab the exact time the browser executes this refreshed code
     const scriptStartTimeMs = Date.now();
 
     setInterval(() => {
         const now = new Date();
         const currentTime = now.getTime();
         
-        // Timer counts down strictly from when the browser loaded the page
         const elapsedSinceLoad = currentTime - scriptStartTimeMs;
         let remainingMs = refreshIntervalMs - elapsedSinceLoad;
         if (remainingMs <= 0) remainingMs = 0;
